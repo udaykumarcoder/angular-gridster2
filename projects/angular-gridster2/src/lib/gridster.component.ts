@@ -23,6 +23,7 @@ import type { GridsterConfig } from './gridsterConfig.interface';
 import { GridType } from './gridsterConfig.interface';
 import { GridsterConfigS } from './gridsterConfigS.interface';
 import { GridsterEmptyCell } from './gridsterEmptyCell.service';
+// import {GridsterComponent} from './gridster.component';
 import {
   GridsterItem,
   GridsterItemComponentInterface

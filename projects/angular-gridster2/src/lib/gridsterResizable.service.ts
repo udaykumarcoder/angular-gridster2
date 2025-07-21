@@ -5,9 +5,9 @@ import { GridsterItemComponentInterface } from './gridsterItem.interface';
 import { GridsterPush } from './gridsterPush.service';
 import { GridsterPushResize } from './gridsterPushResize.service';
 import { GridsterResizeEventType } from './gridsterResizeEventType.interface';
-
 import { cancelScroll, scroll } from './gridsterScroll.service';
 import { GridsterUtils } from './gridsterUtils.service';
+import { GridsterComponent } from './gridster.component';
 
 export class GridsterResizable {
   gridsterItem: GridsterItemComponentInterface;
@@ -70,6 +70,13 @@ export class GridsterResizable {
   width: number;
   height: number;
   newPosition: number;
+  // private scalerLineRef: HTMLDivElement | null = null;
+  private scalerLineRefs: HTMLDivElement[] = [];
+  private isDragging: boolean = false;
+  private topMatched: boolean = false;
+  private bottomMatched: boolean = false;
+  private leftMatched: boolean = false;
+  private rightMatched: boolean = false;
 
   constructor(
     gridsterItem: GridsterItemComponentInterface,
@@ -94,6 +101,156 @@ export class GridsterResizable {
   destroy(): void {
     this.gridster?.previewStyle();
     this.gridster = this.gridsterItem = null!;
+  }
+
+  showScalerLine(item: GridsterItemComponentInterface): void {
+    if (!this.isDragging) return;
+    const rect = item.el.getBoundingClientRect();
+
+    let matchedLeftItem: GridsterItemComponentInterface | null = null;
+    let matchedRightItem: GridsterItemComponentInterface | null = null;
+    let matchedTopItem: GridsterItemComponentInterface | null = null;
+    let matchedBottomItem: GridsterItemComponentInterface | null = null;
+
+    (this.gridster as GridsterComponent).grid.forEach(otherItem => {
+      if (otherItem === item) return;
+
+      const otherRect = otherItem.el.getBoundingClientRect();
+      const tolerance = 2;
+
+      if (Math.abs(otherRect.bottom - rect.top) < tolerance) {
+        this.topMatched = true;
+        matchedTopItem = otherItem;
+      }
+
+      if (Math.abs(otherRect.top - rect.bottom) < tolerance) {
+        this.bottomMatched = true;
+        matchedBottomItem = otherItem;
+      }
+
+      if (Math.abs(otherRect.top - rect.top) < tolerance) {
+        this.topMatched = true;
+        matchedTopItem = otherItem;
+      }
+
+      if (Math.abs(otherRect.bottom - rect.bottom) < tolerance) {
+        this.bottomMatched = true;
+        matchedBottomItem = otherItem;
+      }
+
+      if (Math.abs(otherRect.left - rect.left) < tolerance) {
+        this.leftMatched = true;
+        matchedLeftItem = otherItem;
+      }
+
+      if (Math.abs(otherRect.right - rect.right) < tolerance) {
+        this.rightMatched = true;
+        matchedRightItem = otherItem;
+      }
+    });
+
+    if (this.scalerLineRefs && this.scalerLineRefs.length) {
+      this.scalerLineRefs.forEach(line => document.body.removeChild(line));
+    }
+    this.scalerLineRefs = [];
+
+    const createLine = (styles: Partial<CSSStyleDeclaration>) => {
+      const line = document.createElement('div');
+      line.style.position = 'absolute';
+      Object.assign(line.style, styles);
+      document.body.appendChild(line);
+      this.scalerLineRefs.push(line);
+    };
+
+    if (this.topMatched && matchedTopItem) {
+      const otherRect = (
+        matchedTopItem as GridsterItemComponentInterface
+      ).el.getBoundingClientRect();
+      const gridRect = (
+        this.gridster as GridsterComponent
+      ).el.getBoundingClientRect();
+      const width = gridRect.width; // Full width of the grid
+      const left = gridRect.left; // Start from left edge of the grid
+      const top = rect.top; // Line aligned to top of the current item
+
+      createLine({
+        height: '2px',
+        width: `${width}px`,
+        left: `${left}px`,
+        top: `${top}px`,
+        borderTop: '2px dashed blue',
+        background: 'transparent'
+      });
+    }
+
+    if (this.bottomMatched && matchedBottomItem) {
+      const otherRect = (
+        matchedBottomItem as GridsterItemComponentInterface
+      ).el.getBoundingClientRect();
+      const gridRect = (
+        this.gridster as GridsterComponent
+      ).el.getBoundingClientRect();
+
+      const width = gridRect.width; // Full width of the grid
+      const left = gridRect.left; // Start at leftmost point of grid
+      const top = rect.bottom; // Line at the bottom of the current item
+
+      createLine({
+        height: '2px',
+        width: `${width}px`,
+        left: `${left}px`,
+        top: `${top}px`,
+        borderTop: '2px dashed blue',
+        background: 'transparent'
+      });
+    }
+
+    if (this.leftMatched && matchedLeftItem) {
+      const otherRect = (
+        matchedLeftItem as GridsterItemComponentInterface
+      ).el.getBoundingClientRect();
+      const gridRect = (
+        this.gridster as GridsterComponent
+      ).el.getBoundingClientRect();
+
+      const height = gridRect.height; // Full height of the grid
+      const top = gridRect.top; // Start from top of the grid
+
+      createLine({
+        width: '2px',
+        height: `${height}px`,
+        left: `${rect.left}px`, // Line at left edge of current item
+        top: `${top}px`, // Start from top of grid
+        borderLeft: '2px dashed blue',
+        background: 'transparent'
+      });
+    }
+
+    if (this.rightMatched && matchedRightItem) {
+      const otherRect = (
+        matchedRightItem as GridsterItemComponentInterface
+      ).el.getBoundingClientRect();
+      const gridRect = (
+        this.gridster as GridsterComponent
+      ).el.getBoundingClientRect();
+
+      const height = gridRect.height; // Full height of the grid
+      const top = gridRect.top; // Top of the grid
+
+      createLine({
+        width: '2px',
+        height: `${height}px`,
+        left: `${rect.right}px`, // Right edge of the current item
+        top: `${top}px`, // Start from grid top
+        borderLeft: '2px dashed blue',
+        background: 'transparent'
+      });
+    }
+
+    this.topMatched = false;
+    this.bottomMatched = false;
+    this.leftMatched = false;
+    this.rightMatched = false;
   }
 
   dragStart(e: MouseEvent): void {
@@ -297,6 +454,23 @@ export class GridsterResizable {
     this.zone.run(() => {
       this.gridster.updateGrid();
     });
+
+    // console.log('✅ dragMove called');
+    this.isDragging = true;
+
+    this.showScalerLine(this.gridsterItem);
+    // console.log("direction", this.resizeEventScrollType);
+    this.resizeEventScrollType = {
+      west: false,
+      east: false,
+      north: false,
+      south: false
+    };
+    this.topMatched = false;
+    this.bottomMatched = false;
+    this.leftMatched = false;
+
+    this.rightMatched = false;
   };
 
   dragStop = (e: MouseEvent): void => {
@@ -336,6 +510,16 @@ export class GridsterResizable {
         this.gridster.previewStyle();
       }
     });
+
+    this.isDragging = false;
+    if (this.scalerLineRefs && this.scalerLineRefs.length) {
+      this.scalerLineRefs.forEach(line => {
+        if (line && line.parentNode) {
+          line.parentNode.removeChild(line);
+        }
+      });
+      this.scalerLineRefs = [];
+    }
   };
 
   cancelResize = (): void => {
