@@ -47,3 +47,20 @@ table {
     background-color: rgba(0, 0, 0, 0.03);
   }
 }
+
+.scaler-line {
+  position: absolute;
+  z-index: 1000;
+  background: transparent;
+  pointer-events: none;
+}
+
+.scaler-line.horizontal {
+  height: 2px;
+  border-top: 2px dashed blue;
+}
+
+.scaler-line.vertical {
+  width: 2px;
+  border-left: 2px dashed blue;
+}
